@@ -116,7 +116,6 @@ class FskEncoder(object):
 
 def main():
   parser = optparse.OptionParser()
-  parser = optparse.OptionParser()
   parser.add_option(
       '-s',
       '--sample_rate',

@@ -153,6 +153,20 @@ def main():
       default=256,
       help='Packet size in bytes')
   parser.add_option(
+      '-g',
+      '--page_size',
+      dest='page_size',
+      type='int',
+      default=1024,
+      help='Flash page size')
+  parser.add_option(
+      '-k',
+      '--blank_duration',
+      dest='blank_duration',
+      type='int',
+      default=60,
+      help='Duration of the blank between pages, in ms')
+  parser.add_option(
       '-o',
       '--output_file',
       dest='output_file',
@@ -185,7 +199,8 @@ def main():
       16,
       1)
 
-  for block in encoder.code(data):
+  blank_duration = options.blank_duration * 0.001
+  for block in encoder.code(data, options.page_size, blank_duration):
     if len(block):
       writer.append(block)
 

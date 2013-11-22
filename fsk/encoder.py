@@ -97,7 +97,7 @@ class FskEncoder(object):
     yield self._code_blank(1.0)
     if len(data) % page_size != 0:
       tail = page_size - (len(data) % page_size)
-      data += '\0' * tail
+      data += '\xff' * tail
     
     offset = 0
     remaining_bytes = len(data)

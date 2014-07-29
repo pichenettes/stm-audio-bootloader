@@ -45,7 +45,6 @@ enum PacketDecoderState {
 
 const uint16_t kPacketSize = 256;
 const uint16_t kPreambleSize = 16;
-const uint16_t kMaxSyncDuration = 1000;  // Symbols
 const uint8_t kSymbolMask = 0x3;
 const uint8_t kSymbolShift = 2;
 
@@ -54,7 +53,10 @@ class PacketDecoder {
   PacketDecoder() { }
   ~PacketDecoder() { }
   
-  void Init();
+  void Init() {
+    Init(1000);  // 1000 symbols, ie 0.250s at 8000 bps.
+  }
+  void Init(uint16_t max_sync_duration);
   void Reset() { 
     state_ = PACKET_DECODER_STATE_SYNCING;
     expected_symbols_ = (1 << 4);
@@ -77,6 +79,7 @@ class PacketDecoder {
   uint8_t preamble_remaining_size_;
 
   uint16_t sync_blank_size_;
+  uint16_t max_sync_duration_;
   
   DISALLOW_COPY_AND_ASSIGN(PacketDecoder);
 };

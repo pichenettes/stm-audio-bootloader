@@ -28,9 +28,10 @@
 
 namespace stm_audio_bootloader {
 
-void PacketDecoder::Init() {
+void PacketDecoder::Init(uint16_t max_sync_duration) {
   Reset();
   packet_count_ = 0;
+  max_sync_duration_ = max_sync_duration;
 }
 
 void PacketDecoder::ParseSyncHeader(uint8_t symbol) {
@@ -42,7 +43,7 @@ void PacketDecoder::ParseSyncHeader(uint8_t symbol) {
   switch (symbol) {
     case 4:
       ++sync_blank_size_;
-      if (sync_blank_size_ >= kMaxSyncDuration && packet_count_) {
+      if (sync_blank_size_ >= max_sync_duration_ && packet_count_) {
         state_ = PACKET_DECODER_STATE_END_OF_TRANSMISSION;
         return;
       }

@@ -92,9 +92,14 @@ class FskEncoder(object):
     
     return self._encode(symbol_stream)
 
-  def code(self, data, page_size=1024, blank_duration=0.06):
+  def code_intro(self):
     yield numpy.zeros((1.0 * self._sr, 1)).ravel()
     yield self._code_blank(1.0)
+  
+  def code_outro(self, duration=1.0):
+    yield self._code_blank(duration)
+    
+  def code(self, data, page_size=1024, blank_duration=0.06):
     if len(data) % page_size != 0:
       tail = page_size - (len(data) % page_size)
       data += '\xff' * tail
@@ -111,7 +116,27 @@ class FskEncoder(object):
         num_packets_written = 0
       remaining_bytes -= size
       offset += size
-    yield self._code_blank(1.0)
+
+
+STM32F4_SECTOR_BASE_ADDRESS = [
+  0x08000000,
+  0x08004000,
+  0x08008000,
+  0x0800C000,
+  0x08010000,
+  0x08020000,
+  0x08040000,
+  0x08060000,
+  0x08080000,
+  0x080A0000,
+  0x080C0000,
+  0x080E0000
+]
+
+STM32F1_PAGE_SIZE = 1024
+STM32F4_BLOCK_SIZE = 16384
+STM32F4_APPLICATION_START = 0x08008000
+
 
 
 def main():
@@ -159,25 +184,29 @@ def main():
       default=1024,
       help='Flash page size')
   parser.add_option(
-      '-k',
-      '--blank_duration',
-      dest='blank_duration',
-      type='int',
-      default=60,
-      help='Duration of the blank between pages, in ms')
-  parser.add_option(
       '-o',
       '--output_file',
       dest='output_file',
       default=None,
       help='Write output file to FILE',
       metavar='FILE')
-  
+  parser.add_option(
+      '-t',
+      '--target',
+      dest='target',
+      default='stm32f1',
+      help='Set page size and erase time for TARGET',
+      metavar='TARGET')
+
   options, args = parser.parse_args()
   data = file(args[0], 'rb').read()
   if len(args) != 1:
     logging.fatal('Specify one, and only one firmware .bin file!')
     sys.exit(1)
+
+  if options.target not in ['stm32f1', 'stm32f4']:
+    logging.fatal('Unknown target: %s' % options.target)
+    sys.exit(2)
 
   output_file = options.output_file
   if not output_file:
@@ -198,11 +227,26 @@ def main():
       16,
       1)
 
-  blank_duration = options.blank_duration * 0.001
-  for block in encoder.code(data, options.page_size, blank_duration):
-    if len(block):
-      writer.append(block)
-
+  # INTRO
+  for block in encoder.code_intro():
+    writer.append(block)
+  
+  blank_duration = 1.0
+  if options.target == 'stm32f1':
+    for block in encoder.code(data, STM32F1_PAGE_SIZE, 0.06):
+      if len(block):
+        writer.append(block)
+  elif options.target == 'stm32f4':
+    for x in xrange(0, len(data), STM32F4_BLOCK_SIZE):
+      address = STM32F4_APPLICATION_START + x
+      block = data[x:x+STM32F4_BLOCK_SIZE]
+      pause = 2.5 if address in STM32F4_SECTOR_BASE_ADDRESS else 0.2
+      for block in encoder.code(block, STM32F4_BLOCK_SIZE, pause):
+        if len(block):
+          writer.append(block)
+    blank_duration = 5.0
+  for block in encoder.code_outro(blank_duration):
+    writer.append(block)
 
 if __name__ == '__main__':
   main()

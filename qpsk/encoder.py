@@ -28,6 +28,7 @@
 #
 # Qpsk encoder for converting firmware .bin files into .
 
+import logging
 import numpy
 import optparse
 import zlib
@@ -144,7 +145,8 @@ STM32F4_SECTOR_BASE_ADDRESS = [
   0x080E0000
 ]
 
-STM32F1_PAGE_SIZE = 1024
+PAGE_SIZE = { 'stm32f1': 1024, 'stm32f3': 2048 }
+PAUSE = { 'stm32f1': 0.06, 'stm32f3': 0.15 }
 STM32F4_BLOCK_SIZE = 16384
 STM32F4_APPLICATION_START = 0x08008000
 
@@ -200,7 +202,7 @@ def main():
     logging.fatal('Specify one, and only one firmware .bin file!')
     sys.exit(1)
   
-  if options.target not in ['stm32f1', 'stm32f4']:
+  if options.target not in ['stm32f1', 'stm32f3', 'stm32f4']:
     logging.fatal('Unknown target: %s' % options.target)
     sys.exit(2)
   
@@ -227,8 +229,8 @@ def main():
     writer.append(block)
   
   blank_duration = 1.0
-  if options.target == 'stm32f1':
-    for block in encoder.code(data, STM32F1_PAGE_SIZE, 0.06):
+  if options.target in PAGE_SIZE.keys():
+    for block in encoder.code(data, PAGE_SIZE[options.target], PAUSE[options.target]):
       if len(block):
         writer.append(block)
   elif options.target == 'stm32f4':

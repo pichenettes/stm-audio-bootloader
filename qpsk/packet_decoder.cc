@@ -28,10 +28,12 @@
 
 namespace stm_audio_bootloader {
 
-void PacketDecoder::Init(uint16_t max_sync_duration) {
+void PacketDecoder::Init(uint16_t max_sync_duration, bool scramble) {
   Reset();
   packet_count_ = 0;
   max_sync_duration_ = max_sync_duration;
+  scramble_ = scramble;
+  scrambler_state_ = 0;
 }
 
 void PacketDecoder::ParseSyncHeader(uint8_t symbol) {
@@ -100,6 +102,13 @@ PacketDecoderState PacketDecoder::ProcessSymbol(uint8_t symbol) {
           state_ = crc == expected_crc \
               ? PACKET_DECODER_STATE_OK
               : PACKET_DECODER_STATE_ERROR_CRC;
+          
+          if (scramble_ && state_ == PACKET_DECODER_STATE_OK) {
+            for (uint16_t i = 0; i < kPacketSize; ++i) {
+              packet_[i] ^= scrambler_state_ >> 24;
+              scrambler_state_ = scrambler_state_ * 1664525L + 1013904223L;
+            }
+          }
           ++packet_count_;
         } else {
           packet_[packet_size_] = 0;

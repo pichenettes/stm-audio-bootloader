@@ -54,9 +54,14 @@ class PacketDecoder {
   ~PacketDecoder() { }
   
   void Init() {
-    Init(1000);  // 1000 symbols, ie 0.250s at 8000 bps.
+    Init(1000, false);
   }
-  void Init(uint16_t max_sync_duration);
+  void Init(uint16_t max_sync_duration) {
+    Init(max_sync_duration, false);
+  }
+  
+  void Init(uint16_t max_sync_duration, bool scramble);
+  
   void Reset() { 
     state_ = PACKET_DECODER_STATE_SYNCING;
     expected_symbols_ = (1 << 4);
@@ -80,6 +85,9 @@ class PacketDecoder {
 
   uint16_t sync_blank_size_;
   uint16_t max_sync_duration_;
+  
+  bool scramble_;
+  uint32_t scrambler_state_;
   
   DISALLOW_COPY_AND_ASSIGN(PacketDecoder);
 };

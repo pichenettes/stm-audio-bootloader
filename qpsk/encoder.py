@@ -125,7 +125,7 @@ class QpskEncoder(object):
     return self._encode(symbol_stream)
   
   def code_intro(self):
-    yield numpy.zeros((1.0 * self._sr, 1)).ravel()
+    yield numpy.zeros((1 * self._sr, 1)).ravel()
     yield self._code_blank(1.0)
   
   def code_outro(self, duration=1.0):

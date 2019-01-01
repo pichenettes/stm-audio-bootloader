@@ -29,6 +29,7 @@
 # Streaming .wav file writer.
 
 import copy
+import logging
 import numpy
 import struct
 

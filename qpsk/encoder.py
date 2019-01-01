@@ -28,11 +28,26 @@
 #
 # Qpsk encoder for converting firmware .bin files into .
 
+import logging
 import numpy
 import optparse
 import zlib
 
 from stm_audio_bootloader import audio_stream_writer
+
+
+class Scrambler(object):
+  
+  def __init__(self, seed=0):
+    self._state = seed
+    
+  def scramble(self, data):
+    data = map(ord, data)
+    for index, byte in enumerate(data):
+      data[index] = data[index] ^ (self._state >> 24)
+      self._state = (self._state * 1664525L + 1013904223L) & 0xffffffff
+    return ''.join(map(chr, data))
+
 
 
 class QpskEncoder(object):
@@ -42,7 +57,8 @@ class QpskEncoder(object):
       sample_rate=48000,
       carrier_frequency=2000,
       bit_rate=8000,
-      packet_size=256):
+      packet_size=256,
+      scramble=False):
     period = sample_rate / carrier_frequency
     symbol_time = sample_rate / (bit_rate / 2)
     
@@ -55,6 +71,7 @@ class QpskEncoder(object):
     self._carrier_frequency = carrier_frequency
     self._sample_index = 0
     self._packet_size = packet_size
+    self._scrambler = Scrambler(0) if scramble else None
     
   @staticmethod
   def _upsample(x, factor):
@@ -85,8 +102,11 @@ class QpskEncoder(object):
   def _code_packet(self, data):
     assert len(data) <= self._packet_size
     if len(data) != self._packet_size:
-      data = data + '\x00' * (self._packet_size - len(data))
-
+      data = data + '\xff' * (self._packet_size - len(data))
+    
+    if self._scrambler:
+      data = self._scrambler.scramble(data)
+    
     crc = zlib.crc32(data) & 0xffffffff
 
     data = map(ord, data)
@@ -105,7 +125,7 @@ class QpskEncoder(object):
     return self._encode(symbol_stream)
   
   def code_intro(self):
-    yield numpy.zeros((1.0 * self._sr, 1)).ravel()
+    yield numpy.zeros((1 * self._sr, 1)).ravel()
     yield self._code_blank(1.0)
   
   def code_outro(self, duration=1.0):
@@ -144,12 +164,20 @@ STM32F4_SECTOR_BASE_ADDRESS = [
   0x080E0000
 ]
 
-STM32F1_PAGE_SIZE = 1024
+PAGE_SIZE = { 'stm32f1': 1024, 'stm32f3': 2048 }
+PAUSE = { 'stm32f1': 0.06, 'stm32f3': 0.15 }
 STM32F4_BLOCK_SIZE = 16384
 STM32F4_APPLICATION_START = 0x08008000
 
 def main():
   parser = optparse.OptionParser()
+  parser.add_option(
+      '-k',
+      '--scramble',
+      dest='scramble',
+      action='store_true',
+      default=False,
+      help='Randomize data stream')
   parser.add_option(
       '-s',
       '--sample_rate',
@@ -196,11 +224,12 @@ def main():
   
   options, args = parser.parse_args()
   data = file(args[0], 'rb').read()
+  
   if len(args) != 1:
     logging.fatal('Specify one, and only one firmware .bin file!')
     sys.exit(1)
   
-  if options.target not in ['stm32f1', 'stm32f4']:
+  if options.target not in ['stm32f1', 'stm32f3', 'stm32f4']:
     logging.fatal('Unknown target: %s' % options.target)
     sys.exit(2)
   
@@ -215,7 +244,8 @@ def main():
       options.sample_rate,
       options.carrier_frequency,
       options.baud_rate,
-      options.packet_size)
+      options.packet_size,
+      options.scramble)
   writer = audio_stream_writer.AudioStreamWriter(
       output_file,
       options.sample_rate,
@@ -227,8 +257,8 @@ def main():
     writer.append(block)
   
   blank_duration = 1.0
-  if options.target == 'stm32f1':
-    for block in encoder.code(data, STM32F1_PAGE_SIZE, 0.06):
+  if options.target in PAGE_SIZE.keys():
+    for block in encoder.code(data, PAGE_SIZE[options.target], PAUSE[options.target]):
       if len(block):
         writer.append(block)
   elif options.target == 'stm32f4':

@@ -265,7 +265,7 @@ def main():
     for x in xrange(0, len(data), STM32F4_BLOCK_SIZE):
       address = STM32F4_APPLICATION_START + x
       block = data[x:x+STM32F4_BLOCK_SIZE]
-      pause = 2.5 if address in STM32F4_SECTOR_BASE_ADDRESS else 0.2
+      pause = 3.5 if address in STM32F4_SECTOR_BASE_ADDRESS else 0.2
       for block in encoder.code(block, STM32F4_BLOCK_SIZE, pause):
         if len(block):
           writer.append(block)

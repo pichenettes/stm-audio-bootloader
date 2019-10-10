@@ -164,10 +164,33 @@ STM32F4_SECTOR_BASE_ADDRESS = [
   0x080E0000
 ]
 
+STM32H7_SECTOR_BASE_ADDRESS = [
+  0x08000000,
+  0x08020000,
+  0x08040000,
+  0x08060000,
+  0x08080000,
+  0x080a0000,
+  0x080c0000,
+  0x080e0000,
+  0x08100000,
+  0x08120000,
+  0x08140000,
+  0x08160000,
+  0x08180000,
+  0x081a0000,
+  0x081c0000,
+  0x081e0000,
+]
+
 PAGE_SIZE = { 'stm32f1': 1024, 'stm32f3': 2048 }
 PAUSE = { 'stm32f1': 0.06, 'stm32f3': 0.15 }
+
 STM32F4_BLOCK_SIZE = 16384
 STM32F4_APPLICATION_START = 0x08008000
+
+STM32H7_BLOCK_SIZE = 16384
+STM32H7_APPLICATION_START = 0x08020000
 
 def main():
   parser = optparse.OptionParser()
@@ -229,7 +252,7 @@ def main():
     logging.fatal('Specify one, and only one firmware .bin file!')
     sys.exit(1)
   
-  if options.target not in ['stm32f1', 'stm32f3', 'stm32f4']:
+  if options.target not in ['stm32f1', 'stm32f3', 'stm32f4', 'stm32h7']:
     logging.fatal('Unknown target: %s' % options.target)
     sys.exit(2)
   
@@ -261,12 +284,22 @@ def main():
     for block in encoder.code(data, PAGE_SIZE[options.target], PAUSE[options.target]):
       if len(block):
         writer.append(block)
-  elif options.target == 'stm32f4':
-    for x in xrange(0, len(data), STM32F4_BLOCK_SIZE):
-      address = STM32F4_APPLICATION_START + x
-      block = data[x:x+STM32F4_BLOCK_SIZE]
-      pause = 3.5 if address in STM32F4_SECTOR_BASE_ADDRESS else 0.2
-      for block in encoder.code(block, STM32F4_BLOCK_SIZE, pause):
+  elif options.target == 'stm32f4' or options.target == 'stm32h7':
+    if options.target == 'stm32f4':
+      block_size = STM32F4_BLOCK_SIZE
+      start_address = STM32F4_APPLICATION_START
+      sector_base = STM32F4_SECTOR_BASE_ADDRESS
+      erase_pause = 3.5
+    else:
+      block_size = STM32H7_BLOCK_SIZE
+      start_address = STM32H7_APPLICATION_START
+      sector_base = STM32H7_SECTOR_BASE_ADDRESS
+      erase_pause = 1.5
+    for x in xrange(0, len(data), block_size):
+      address = start_address + x
+      block = data[x:x+block_size]
+      pause = erase_pause if address in sector_base else 0.2
+      for block in encoder.code(block, block_size, pause):
         if len(block):
           writer.append(block)
     blank_duration = 5.0

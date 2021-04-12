@@ -294,7 +294,7 @@ def main():
       block_size = STM32H7_BLOCK_SIZE
       start_address = STM32H7_APPLICATION_START
       sector_base = STM32H7_SECTOR_BASE_ADDRESS
-      erase_pause = 1.5
+      erase_pause = 3.0
     for x in xrange(0, len(data), block_size):
       address = start_address + x
       block = data[x:x+block_size]

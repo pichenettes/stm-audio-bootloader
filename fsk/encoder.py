@@ -44,25 +44,28 @@ class FskEncoder(object):
       pause_period=32,
       one_period=8,
       zero_period=4,
-      packet_size=256):
+      packet_size=256,
+      sine=False):
     self._sr = sample_rate
     self._pause_period = pause_period
     self._one_period = one_period
     self._zero_period = zero_period
     self._packet_size = packet_size
     self._state = 1
+    self._sine = sine
     
   def _encode(self, symbol_stream):
     symbol_stream = numpy.array(symbol_stream)
     counts = [numpy.sum(symbol_stream == symbol) for symbol in range(3)]
     durations = [self._zero_period, self._one_period, self._pause_period]
+    sines = [numpy.sin(numpy.arange(d) * numpy.pi / d) for d in durations]
     total_length = numpy.dot(durations, counts)
-    signal = numpy.zeros((total_length, 1))
+    signal = numpy.zeros((total_length, ))
     state = self._state
     index = 0
     for symbol in symbol_stream:
       d = durations[symbol]
-      signal[index:index + d] = state
+      signal[index:index + d] = state * (sines[symbol] if self._sine else 1)
       state = -state
       index += d
     assert index == signal.shape[0]

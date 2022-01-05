@@ -38,6 +38,11 @@ from stm_audio_bootloader import audio_stream_writer
 
 class FskEncoder(object):
   
+  SQUARE = 0
+  SINE = 1
+  SINE_NO_DC = 2
+  COSINE = 3
+  
   def __init__(
       self,
       sample_rate=48000,
@@ -45,27 +50,36 @@ class FskEncoder(object):
       one_period=8,
       zero_period=4,
       packet_size=256,
-      sine=False):
+      scheme=SQUARE):
     self._sr = sample_rate
     self._pause_period = pause_period
     self._one_period = one_period
     self._zero_period = zero_period
     self._packet_size = packet_size
     self._state = 1
-    self._sine = sine
+    self._scheme = scheme
     
   def _encode(self, symbol_stream):
     symbol_stream = numpy.array(symbol_stream)
     counts = [numpy.sum(symbol_stream == symbol) for symbol in range(3)]
     durations = [self._zero_period, self._one_period, self._pause_period]
-    sines = [numpy.sin(numpy.arange(d) * numpy.pi / d) * max(float(durations[0]) / d, 0.5) for d in durations]
+    
+    if self._scheme == self.SQUARE:
+      signals = [1 for d in durations]
+    elif self._scheme == self.SINE:
+      signals = [numpy.sin(numpy.arange(d) * numpy.pi / d) for d in durations]
+    elif self._scheme == self.SINE_NO_DC:
+      signals = [numpy.sin(numpy.arange(d) * numpy.pi / d) * max(float(durations[0]) / d, 0.5) for d in durations]
+    else:
+      signals = [numpy.cos(numpy.arange(d) * numpy.pi / d) for d in durations]
+      
     total_length = numpy.dot(durations, counts)
     signal = numpy.zeros((total_length, ))
     state = self._state
     index = 0
     for symbol in symbol_stream:
       d = durations[symbol]
-      signal[index:index + d] = state * (sines[symbol] if self._sine else 1)
+      signal[index:index + d] = state * signals[symbol]
       state = -state
       index += d
     assert index == signal.shape[0]

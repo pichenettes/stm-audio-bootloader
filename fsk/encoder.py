@@ -58,7 +58,7 @@ class FskEncoder(object):
     symbol_stream = numpy.array(symbol_stream)
     counts = [numpy.sum(symbol_stream == symbol) for symbol in range(3)]
     durations = [self._zero_period, self._one_period, self._pause_period]
-    sines = [numpy.sin(numpy.arange(d) * numpy.pi / d) for d in durations]
+    sines = [numpy.sin(numpy.arange(d) * numpy.pi / d) * max(float(durations[0]) / d, 0.5) for d in durations]
     total_length = numpy.dot(durations, counts)
     signal = numpy.zeros((total_length, ))
     state = self._state
